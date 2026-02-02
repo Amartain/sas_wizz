@@ -1,0 +1,13 @@
+/* 1. Get the path to the WORK folder */
+%let safe_path = %sysfunc(getoption(WORK));
+
+/* 2. Print the path to the Log (Look at the Log tab after running!) */
+%put =================================================;
+%put MY SAFE WORK PATH IS: &safe_path;
+%put =================================================;
+
+/* 3. Try to write a tiny file there to prove we have permission */
+ods html file="test_file.html" path="&safe_path";
+    ods html text="<h1>Hello! If you see this, the path works.</h1>";
+    ods html text="<p>Saved at: &safe_path</p>";
+ods html close;
