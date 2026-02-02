@@ -1,13 +1,80 @@
-/* 1. Get the path to the WORK folder */
-%let safe_path = %sysfunc(getoption(WORK));
+/* Close all previous outputs */
+ods _all_ close;
 
-/* 2. Print the path to the Log (Look at the Log tab after running!) */
-%put =================================================;
-%put MY SAFE WORK PATH IS: &safe_path;
-%put =================================================;
+/* Create a single HTML file in your temporary WORK folder */
+ods html5 path="%sysfunc(getoption(work))" file="simple_test.html"
+    /* INJECT THE BRAIN (JAVASCRIPT) */
+    headtext='
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        
+        /* Button Styling */
+        .nav-btn {
+            padding: 15px 30px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #0078d7;
+            color: white;
+            border: none;
+            margin-right: 5px;
+            border-radius: 5px;
+        }
+        .nav-btn:hover { background-color: #005a9e; }
 
-/* 3. Try to write a tiny file there to prove we have permission */
-ods html file="test_file.html" path="&safe_path";
-    ods html text="<h1>Hello! If you see this, the path works.</h1>";
-    ods html text="<p>Saved at: &safe_path</p>";
-ods html close;
+        /* The Pages (Hidden by default) */
+        .my-page {
+            display: none; /* Invisible! */
+            padding: 50px;
+            margin-top: 20px;
+            border: 2px solid #ccc;
+            background-color: #f9f9f9;
+        }
+    </style>
+
+    <script>
+        function switchPage(pageID) {
+            // 1. Find all pages and HIDE them
+            document.getElementById("page_dept").style.display = "none";
+            document.getElementById("page_emp").style.display = "none";
+            document.getElementById("page_data").style.display = "none";
+
+            // 2. Find the specific page clicked and SHOW it
+            document.getElementById(pageID).style.display = "block";
+        }
+    </script>
+    ';
+
+/* --- THE BODY OF THE REPORT --- */
+
+ods html5 text='<h1>The Simplest Dashboard Test</h1>';
+
+/* THE BUTTONS */
+ods html5 text='
+<div>
+    <button class="nav-btn" onclick="switchPage(''page_dept'')">Department</button>
+    <button class="nav-btn" onclick="switchPage(''page_emp'')">Employee</button>
+    <button class="nav-btn" onclick="switchPage(''page_data'')">Data</button>
+</div>
+';
+
+/* THE PAGES */
+
+/* Page 1: Department (We set style="display:block" so it shows up first) */
+ods html5 text='<div id="page_dept" class="my-page" style="display:block">';
+    ods html5 text='<h2>Department Stats Page</h2>';
+    ods html5 text='<p>If you see this, the first tab is working.</p>';
+ods html5 text='</div>';
+
+/* Page 2: Employee */
+ods html5 text='<div id="page_emp" class="my-page">';
+    ods html5 text='<h2>Employee Stats Page</h2>';
+    ods html5 text='<p>You clicked the Employee button!</p>';
+ods html5 text='</div>';
+
+/* Page 3: Data */
+ods html5 text='<div id="page_data" class="my-page">';
+    ods html5 text='<h2>Data Page</h2>';
+    ods html5 text='<p>Here is where the table would go.</p>';
+ods html5 text='</div>';
+
+ods html5 close;
