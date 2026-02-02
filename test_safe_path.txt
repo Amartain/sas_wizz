@@ -1,0 +1,15 @@
+/* 1. Get the path to the WORK folder */
+%let safe_path = %sysfunc(getoption(WORK));
+
+/* 2. Create a specific table just to hold this information */
+data work.Path_Info;
+    length Path_Location $ 200 Status $ 50;
+    Path_Location = "&safe_path";
+    Status = "This is your safe folder!";
+    output;
+run;
+
+/* 3. PRINT IT (This forces the Results tab to open) */
+title "Where is my Safe Folder?";
+proc print data=work.Path_Info noobs;
+run;
