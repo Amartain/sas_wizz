@@ -1,0 +1,228 @@
+/* ================================================================================= */
+/* 1. SETUP: Create the Data (Same as before)                                        */
+/* ================================================================================= */
+
+/* Department Stats */
+data work.dep_stats;
+    input DepName $ DepID $ No_Cases Avg_Satisfaction;
+    datalines;
+Sales D01 150 4.5
+IT    D02 85  3.2
+HR    D03 40  4.8
+Marketing D04 95 4.1
+;
+run;
+
+/* Employee Stats */
+data work.emp_stats;
+    input EmpName $ EmpID $ DepID $ No_Cases Total_Hours;
+    datalines;
+Adam  E01 D01 10 120
+Eve   E02 D01 15 160
+Steve E03 D02 8  90
+Sarah E04 D02 12 110
+John  E05 D03 5  40
+Mike  E06 D04 22 180
+;
+run;
+
+/* Core Data */
+data work.core_data;
+    length CaseType $12;
+    input EmpID $ EmpName $ CaseID $ CaseType $ DepID $ DepName $ Indiv_Hours Full_Case_Hours;
+    datalines;
+E01 Adam C101 Deal_Close D01 Sales 10 20
+E01 Adam C102 Meeting    D01 Sales 5  5
+E01 Adam C103 Paperwork  D01 Sales 8  8
+E02 Eve  C101 Deal_Close D01 Sales 10 20
+E02 Eve  C104 Prospect   D01 Sales 20 20
+E03 Steve C201 Bug_Fix   D02 IT    15 15
+E03 Steve C202 Server    D02 IT    4  8
+E04 Sarah C202 Server    D02 IT    4  8
+E04 Sarah C203 Security  D02 IT    10 10
+E05 John  C301 Hiring    D03 HR    8  8
+E06 Mike  C401 Campaign  D04 Marketing 12 24
+E06 Mike  C402 Ad_Buy    D04 Marketing 5 5
+;
+run;
+
+/* Create Dropdown Lists */
+proc sql noprint;
+    select distinct DepName into :dept_list separated by '|' from work.dep_stats;
+    select distinct EmpName into :emp_list separated by '|' from work.emp_stats;
+quit;
+
+/* ================================================================================= */
+/* 2. THE DASHBOARD GENERATOR (Stream Mode)                                          */
+/* ================================================================================= */
+
+/* We close previous outputs to reset, but then we open HTML WITHOUT a filename */
+ods _all_ close;
+ods html; /* SAS automatically directs this to the Results Viewer */
+
+/* INJECT JAVASCRIPT & CSS INTO THE HEADER */
+ods html text='
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.20/css/jquery.dataTables.css">
+<script src="https://code.jquery.com/jquery-3.3.1.js"></script>
+<script src="https://cdn.datatables.net/1.10.20/js/jquery.dataTables.js"></script>
+
+<style>
+    /* SEABORN STYLE THEME */
+    :root { --sea-blue: #4C72B0; --sea-green: #55A868; --sea-red: #C44E52; }
+    
+    /* Make sure the dashboard uses the full width of the result window */
+    div.user-dashboard { font-family: "Segoe UI", sans-serif; background-color: #f4f4f7; padding: 20px; border-radius: 5px; }
+    
+    .dash-header { background: white; padding: 15px 30px; border-bottom: 3px solid var(--sea-blue); display: flex; justify-content: space-between; margin-bottom: 20px; }
+    .dash-header h1 { margin: 0; color: var(--sea-blue); }
+    
+    /* TABS */
+    .dash-tabs { overflow: hidden; margin-bottom: 15px; }
+    .dash-tabs button { 
+        background-color: #ddd; float: left; border: none; outline: none; 
+        cursor: pointer; padding: 14px 16px; transition: 0.3s; font-size: 15px; font-weight: bold; color: #555;
+    }
+    .dash-tabs button:hover { background-color: #ccc; }
+    .dash-tabs button.active { background-color: var(--sea-blue); color: white; }
+    
+    /* CONTENT BOXES */
+    .dash-content { display: none; padding: 20px; background: white; border: 1px solid #ddd; animation: fadeEffect 0.5s; }
+    .dash-card { background: #fff; border: 1px solid #e1e1e1; padding: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px; }
+    
+    /* CONTROLS */
+    select { padding: 8px; font-size: 14px; border-radius: 4px; border: 1px solid #ccc; min-width: 200px; }
+    .hidden-graph { display: none; margin-top: 15px; }
+
+    @keyframes fadeEffect { from {opacity: 0;} to {opacity: 1;} }
+</style>
+
+<script>
+    function openDashTab(evt, tabName) {
+        $(".dash-content").hide();
+        $(".dash-tabs button").removeClass("active");
+        $("#" + tabName).show();
+        $(evt.currentTarget).addClass("active");
+    }
+    function showDept(val) { $(".dept-g").hide(); $("#D_"+val).fadeIn(); }
+    function showEmp(val) { $(".emp-g").hide(); $("#E_"+val).fadeIn(); }
+    
+    $(document).ready(function() {
+        // Try to activate DataTable, but suppress errors if offline
+        try { $(".search-table").DataTable(); } catch(e) {}
+        // Click the first tab automatically
+        document.getElementById("btnDefault").click(); 
+    });
+</script>
+
+<div class="user-dashboard">
+
+    <div class="dash-header">
+        <h1>Sales & HR Dashboard</h1>
+        <p>Q1 Performance</p>
+    </div>
+
+    <div class="dash-tabs">
+        <button class="tablinks" onclick="openDashTab(event, ''Tab1'')" id="btnDefault">Department Stats</button>
+        <button class="tablinks" onclick="openDashTab(event, ''Tab2'')">Employee Stats</button>
+        <button class="tablinks" onclick="openDashTab(event, ''Tab3'')">Raw Data</button>
+    </div>
+';
+
+/* --- TAB 1: DEPARTMENTS --- */
+ods html text='<div id="Tab1" class="dash-content">';
+    ods html text='<div class="dash-card"><h3>Overview</h3>';
+        /* Static Graph */
+        proc sgplot data=work.dep_stats;
+            vbar DepName / response=No_Cases group=DepName;
+            styleattrs datacolors=(cx4C72B0 cx55A868 cxC44E52 cxCCB974); 
+            yaxis grid;
+        run;
+    ods html text='</div>';
+    
+    ods html text='<div class="dash-card"><h3>Drill Down</h3><p>Select Department:</p>';
+    ods html text='<select onchange="showDept(this.value)"><option>-- Select --</option>';
+    %macro d_loop;
+        %let c = %sysfunc(countw(&dept_list, |));
+        %do i = 1 %to &c;
+            %let d = %scan(&dept_list, &i, |);
+            ods html text="<option value='&d'>&d</option>";
+        %end;
+    %mend;
+    %d_loop;
+    ods html text='</select>';
+    
+    %macro d_graphs;
+        %let c = %sysfunc(countw(&dept_list, |));
+        %do i = 1 %to &c;
+            %let d = %scan(&dept_list, &i, |);
+            ods html text="<div id='D_&d' class='hidden-graph dept-g'>";
+                proc sgplot data=work.core_data;
+                    where DepName = "&d";
+                    hbar CaseType / response=Indiv_Hours fillattrs=(color=cx4C72B0 transparency=0.2);
+                    title "Hours by Case Type: &d";
+                run;
+            ods html text="</div>";
+        %end;
+    %mend;
+    %d_graphs;
+    ods html text='</div>';
+ods html text='</div>';
+
+/* --- TAB 2: EMPLOYEES --- */
+ods html text='<div id="Tab2" class="dash-content">';
+    ods html text='<div class="dash-card"><h3>Top Performers</h3>';
+        proc sgplot data=work.emp_stats;
+            vbar EmpName / response=No_Cases categoryorder=respdesc fillattrs=(color=cx55A868);
+            yaxis grid;
+        run;
+    ods html text='</div>';
+    
+    ods html text='<div class="dash-card"><h3>Detailed View</h3><p>Select Employee:</p>';
+    ods html text='<select onchange="showEmp(this.value)"><option>-- Select --</option>';
+    %macro e_loop;
+        %let c = %sysfunc(countw(&emp_list, |));
+        %do i = 1 %to &c;
+            %let e = %scan(&emp_list, &i, |);
+            ods html text="<option value='&e'>&e</option>";
+        %end;
+    %mend;
+    %e_loop;
+    ods html text='</select>';
+    
+    %macro e_graphs;
+        %let c = %sysfunc(countw(&emp_list, |));
+        %do i = 1 %to &c;
+            %let e = %scan(&emp_list, &i, |);
+            ods html text="<div id='E_&e' class='hidden-graph emp-g'>";
+                proc sgplot data=work.core_data;
+                    where EmpName = "&e";
+                    vbar CaseID / response=Indiv_Hours fillattrs=(color=cx4C72B0);
+                    title "Workload: &e";
+                run;
+            ods html text="</div>";
+        %end;
+    %mend;
+    %e_graphs;
+    ods html text='</div>';
+ods html text='</div>';
+
+/* --- TAB 3: DATA --- */
+ods html text='<div id="Tab3" class="dash-content"><div class="dash-card"><h3>Full Database</h3>';
+    /* Note: We force the table to look nice with style options */
+    proc print data=work.core_data noobs label 
+        style(table)={htmlclass="search-table" width="100%" cellspacing="0" cellpadding="5" bordercolor="#eee"};
+    run;
+ods html text='</div></div>';
+
+ods html text='</div> ';
+
+
+/* 3. THE "TRIGGER" TABLE (Crucial!) */
+/* This tiny table forces Enterprise Guide to wake up and show the Results tab */
+title "Report Generated Successfully";
+data _null_;
+   file print;
+   put "Dashboard is ready above.";
+run;
+
+ods html close;
