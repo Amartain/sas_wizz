@@ -1,0 +1,254 @@
+/* ================================================================================= */
+/* 1. DATA SETUP (No changes here)                                                   */
+/* ================================================================================= */
+data work.dep_stats;
+    input DepName $ DepID $ No_Cases Avg_Satisfaction;
+    datalines;
+Sales D01 150 4.5
+IT    D02 85  3.2
+HR    D03 40  4.8
+Marketing D04 95 4.1
+;
+run;
+
+data work.emp_stats;
+    input EmpName $ EmpID $ DepID $ No_Cases Total_Hours;
+    datalines;
+Adam  E01 D01 10 120
+Eve   E02 D01 15 160
+Steve E03 D02 8  90
+Sarah E04 D02 12 110
+John  E05 D03 5  40
+Mike  E06 D04 22 180
+;
+run;
+
+data work.core_data;
+    length CaseType $12;
+    input EmpID $ EmpName $ CaseID $ CaseType $ DepID $ DepName $ Indiv_Hours Full_Case_Hours;
+    datalines;
+E01 Adam C101 Deal_Close D01 Sales 10 20
+E01 Adam C102 Meeting    D01 Sales 5  5
+E01 Adam C103 Paperwork  D01 Sales 8  8
+E02 Eve  C101 Deal_Close D01 Sales 10 20
+E02 Eve  C104 Prospect   D01 Sales 20 20
+E03 Steve C201 Bug_Fix   D02 IT    15 15
+E03 Steve C202 Server    D02 IT    4  8
+E04 Sarah C202 Server    D02 IT    4  8
+E04 Sarah C203 Security  D02 IT    10 10
+E05 John  C301 Hiring    D03 HR    8  8
+E06 Mike  C401 Campaign  D04 Marketing 12 24
+E06 Mike  C402 Ad_Buy    D04 Marketing 5 5
+;
+run;
+
+/* Dropdown Lists */
+proc sql noprint;
+    select distinct DepName into :dept_list separated by '|' from work.dep_stats;
+    select distinct EmpName into :emp_list separated by '|' from work.emp_stats;
+quit;
+
+
+/* ================================================================================= */
+/* 2. THE SINGLE-FILE GENERATOR (Using ODS HTML5 + SVG)                              */
+/* ================================================================================= */
+
+/* Reset everything */
+ods _all_ close;
+title; footnote;
+
+/* Force SAS to embed graphs as text (SVG) so they never break */
+ods graphics on / outputfmt=svg imagefmt=svg;
+
+/* Open HTML5 - This is the key for modern dashboards */
+/* We do NOT specify a file path, letting SAS stream it to the Results Viewer */
+ods html5 options(bitmap_mode='inline') 
+    headtext='
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.20/css/jquery.dataTables.css">
+    <script src="https://code.jquery.com/jquery-3.3.1.js"></script>
+    <script src="https://cdn.datatables.net/1.10.20/js/jquery.dataTables.js"></script>
+    
+    <style>
+        /* --- STYLING --- */
+        body { font-family: "Segoe UI", sans-serif; background-color: #f4f4f7; padding: 20px; }
+        
+        /* The Header */
+        .dash-header { background: white; padding: 20px; border-bottom: 4px solid #4C72B0; margin-bottom: 20px; display: flex; justify-content: space-between; }
+        .dash-header h1 { margin: 0; color: #4C72B0; }
+        
+        /* The Tabs */
+        .tab-bar { overflow: hidden; }
+        .tab-bar button { 
+            background-color: #ddd; float: left; border: none; outline: none; cursor: pointer; 
+            padding: 14px 20px; transition: 0.3s; font-size: 16px; color: #555; font-weight: bold; margin-right: 2px;
+        }
+        .tab-bar button:hover { background-color: #ccc; }
+        .tab-bar button.active { background-color: #4C72B0; color: white; }
+
+        /* The Content */
+        .tab-content { display: none; padding: 20px; background: white; border: 1px solid #ccc; animation: fadeEffect 0.5s; min-height: 500px; }
+        
+        /* The Cards & Filters */
+        .card { background: white; border: 1px solid #ddd; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        select { padding: 10px; font-size: 16px; min-width: 250px; border: 1px solid #ccc; border-radius: 4px; }
+        
+        /* Graphs are hidden by default */
+        .drill-graph { display: none; margin-top: 20px; padding-top: 20px; border-top: 1px dashed #ccc; }
+
+        @keyframes fadeEffect { from {opacity: 0;} to {opacity: 1;} }
+    </style>
+
+    <script>
+        // 1. Tab Switching Logic
+        function openTab(evt, tabName) {
+            $(".tab-content").hide();
+            $(".tab-bar button").removeClass("active");
+            $("#" + tabName).show();
+            $(evt.currentTarget).addClass("active");
+        }
+
+        // 2. Department Dropdown Logic
+        function selectDept(val) {
+            $(".dept-container").hide(); // Hide all
+            $("#D_" + val).fadeIn();     // Show selected
+        }
+
+        // 3. Employee Dropdown Logic
+        function selectEmp(val) {
+            $(".emp-container").hide();  // Hide all
+            $("#E_" + val).fadeIn();     // Show selected
+        }
+
+        // 4. On Load
+        $(document).ready(function() {
+            try { $(".search-table").DataTable(); } catch(e) {}
+            // Click the first tab to start
+            $("#btnStart").click();
+        });
+    </script>
+    ';
+
+/* --- DASHBOARD BODY --- */
+
+ods html5 text='
+<div class="dash-header">
+    <div>
+        <h1>Executive Dashboard</h1>
+        <p style="margin:0; color:#666;">Sales & Efficiency Report</p>
+    </div>
+    <div style="text-align:right;">
+        <small>Generated by SAS</small>
+    </div>
+</div>
+
+<div class="tab-bar">
+    <button class="tablinks" onclick="openTab(event, ''Tab1'')" id="btnStart">Department Stats</button>
+    <button class="tablinks" onclick="openTab(event, ''Tab2'')">Employee Stats</button>
+    <button class="tablinks" onclick="openTab(event, ''Tab3'')">Raw Data</button>
+</div>
+';
+
+/* === TAB 1: DEPARTMENTS === */
+ods html5 text='<div id="Tab1" class="tab-content">';
+    
+    ods html5 text='<div class="card"><h3>Overview</h3>';
+    proc sgplot data=work.dep_stats;
+        vbar DepName / response=No_Cases group=DepName;
+        styleattrs datacolors=(cx4C72B0 cx55A868 cxC44E52 cxCCB974); 
+        yaxis grid;
+    run;
+    ods html5 text='</div>';
+
+    ods html5 text='<div class="card"><h3>Drill Down</h3><p>Select Department:</p>';
+    
+    /* Dropdown HTML */
+    ods html5 text='<select onchange="selectDept(this.value)"><option>-- Select --</option>';
+    %macro d_opt;
+        %let c = %sysfunc(countw(&dept_list, |));
+        %do i = 1 %to &c;
+            %let d = %scan(&dept_list, &i, |);
+            ods html5 text="<option value='&d'>&d</option>";
+        %end;
+    %mend;
+    %d_opt;
+    ods html5 text='</select>';
+
+    /* Graphs Loop */
+    %macro d_graphs;
+        %let c = %sysfunc(countw(&dept_list, |));
+        %do i = 1 %to &c;
+            %let d = %scan(&dept_list, &i, |);
+            /* Note the ID matches the JS function above */
+            ods html5 text="<div id='D_&d' class='drill-graph dept-container'>";
+                proc sgplot data=work.core_data;
+                    where DepName = "&d";
+                    hbar CaseType / response=Indiv_Hours fillattrs=(color=cx4C72B0 transparency=0.2);
+                    title "Hours by Case Type: &d";
+                run;
+            ods html5 text="</div>";
+        %end;
+    %mend;
+    %d_graphs;
+
+ods html5 text='</div></div>'; 
+/* End Tab 1 */
+
+
+/* === TAB 2: EMPLOYEES === */
+ods html5 text='<div id="Tab2" class="tab-content">';
+    
+    ods html5 text='<div class="card"><h3>Top Performers</h3>';
+    proc sgplot data=work.emp_stats;
+        vbar EmpName / response=No_Cases categoryorder=respdesc fillattrs=(color=cx55A868);
+        yaxis grid;
+    run;
+    ods html5 text='</div>';
+
+    ods html5 text='<div class="card"><h3>Workload Analysis</h3><p>Select Employee:</p>';
+    
+    /* Dropdown HTML */
+    ods html5 text='<select onchange="selectEmp(this.value)"><option>-- Select --</option>';
+    %macro e_opt;
+        %let c = %sysfunc(countw(&emp_list, |));
+        %do i = 1 %to &c;
+            %let e = %scan(&emp_list, &i, |);
+            ods html5 text="<option value='&e'>&e</option>";
+        %end;
+    %mend;
+    %e_opt;
+    ods html5 text='</select>';
+
+    /* Graphs Loop */
+    %macro e_graphs;
+        %let c = %sysfunc(countw(&emp_list, |));
+        %do i = 1 %to &c;
+            %let e = %scan(&emp_list, &i, |);
+            ods html5 text="<div id='E_&e' class='drill-graph emp-container'>";
+                proc sgplot data=work.core_data;
+                    where EmpName = "&e";
+                    vbar CaseID / response=Indiv_Hours fillattrs=(color=cx4C72B0);
+                    title "Workload: &e";
+                run;
+            ods html5 text="</div>";
+        %end;
+    %mend;
+    %e_graphs;
+
+ods html5 text='</div></div>';
+/* End Tab 2 */
+
+
+/* === TAB 3: DATA === */
+ods html5 text='<div id="Tab3" class="tab-content"><div class="card"><h3>Master Database</h3>';
+    proc print data=work.core_data noobs label 
+        style(table)={htmlclass="search-table" width="100%" cellspacing="0" cellpadding="5" bordercolor="#eee"};
+    run;
+ods html5 text='</div></div>';
+
+
+/* CLOSE AND FINISH */
+ods html5 close;
+
+/* Trigger the Results Viewer to open */
+title "Dashboard Generated";
+data _null_; file print; put "Open the Result via the 'Download' or 'Browser' button."; run;
