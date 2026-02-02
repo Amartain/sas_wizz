@@ -4,56 +4,97 @@
 /* 2. Reset Output */
 ods _all_ close;
 
-/* 3. Open HTML File */
-ods html path="&safe_path" file="button_test.html" style=styles.htmlblue;
+/* 3. Open HTML5 File (Modern Standard) */
+ods html5 path="&safe_path" file="quote_test.html" options(bitmap_mode='inline');
 
-/* 4. INJECT JAVASCRIPT & BUTTONS */
-ods html text='
+/* 4. THE BRAIN (Clean Logic) */
+/* Notice: I use outer DOUBLE QUOTES (") so I can use SINGLE QUOTES (') inside freely */
+ods html5 text="
 <script>
-    function togglePage(id) {
-        // Hide all blocks
-        var pages = document.getElementsByClassName("my-page");
-        for(var i=0; i<pages.length; i++) {
-            pages[i].style.display = "none";
+    // 1. Proof of Life
+    window.onload = function() {
+        console.log('System Started');
+        // Uncomment the next line if you want a popup verification
+        // alert('System Ready: JavaScript is active.');
+    };
+
+    // 2. The Switcher Logic
+    function switchTab(clickedTab, boxID) {
+        // Reset ALL buttons to grey
+        var btns = document.getElementsByClassName('my-btn');
+        for(var i=0; i<btns.length; i++) {
+            btns[i].style.backgroundColor = '#ddd';
+            btns[i].style.color = '#333';
         }
-        // Show the clicked one
-        document.getElementById(id).style.display = "block";
+        
+        // Highlight CLICKED button to Blue
+        clickedTab.style.backgroundColor = '#0078d7';
+        clickedTab.style.color = 'white';
+
+        // Hide ALL content boxes
+        var boxes = document.getElementsByClassName('content-box');
+        for(var k=0; k<boxes.length; k++) {
+            boxes[k].style.display = 'none';
+        }
+
+        // Show the ONE we want
+        document.getElementById(boxID).style.display = 'block';
     }
 </script>
 
 <style>
-    .my-btn { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #0078d7; color: white; border: none; margin-right: 5px; }
-    .my-btn:hover { background: #005a9e; }
-    .my-page { border: 2px solid #333; padding: 20px; margin-top: 20px; display: none; background: #f0f0f0; }
+    body { font-family: 'Segoe UI', sans-serif; padding: 40px; background: #f4f4f4; }
+    
+    .nav-bar { margin-bottom: 20px; }
+    
+    .my-btn {
+        padding: 15px 30px; 
+        font-size: 16px; 
+        cursor: pointer; 
+        background-color: #ddd; /* Default Grey */
+        color: #333;
+        border: none; 
+        margin-right: 5px;
+        border-radius: 4px;
+        font-weight: bold;
+    }
+    
+    .content-box {
+        background: white;
+        padding: 40px;
+        border-radius: 4px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        display: none; /* Hidden by default */
+    }
 </style>
+";
 
-<div style="padding: 20px;">
-    <button class="my-btn" onclick="togglePage(''pg_dept'')">Department</button>
-    <button class="my-btn" onclick="togglePage(''pg_emp'')">Employee</button>
-    <button class="my-btn" onclick="togglePage(''pg_data'')">Data</button>
+/* 5. THE BODY (Using Double Quotes wrapper again) */
+ods html5 text="
+<div class='nav-bar'>
+    <button class='my-btn' onclick='switchTab(this, \"box_dept\")'>Department</button>
+    <button class='my-btn' onclick='switchTab(this, \"box_emp\")'>Employee</button>
+    <button class='my-btn' onclick='switchTab(this, \"box_data\")'>Data</button>
 </div>
 
-<div id="pg_dept" class="my-page" style="display:block">
-    <h1>Department Stats Page</h1>
-    <p>Button logic is working.</p>
+<div id='box_dept' class='content-box'>
+    <h1 style='color:#0078d7; margin-top:0;'>Department Statistics</h1>
+    <p>If you can read this, the first tab is active.</p>
 </div>
 
-<div id="pg_emp" class="my-page">
-    <h1>Employee Stats Page</h1>
-    <p>You switched tabs successfully.</p>
+<div id='box_emp' class='content-box'>
+    <h1 style='color:#28a745; margin-top:0;'>Employee Statistics</h1>
+    <p>This is the Employee view.</p>
 </div>
 
-<div id="pg_data" class="my-page">
-    <h1>Data Page</h1>
-    <p>Raw data would go here.</p>
+<div id='box_data' class='content-box'>
+    <h1 style='color:#6c757d; margin-top:0;'>Raw Data Vault</h1>
+    <p>Data table goes here.</p>
 </div>
-';
+";
 
-/* 5. THE KICKSTART (Crucial!) */
-/* We print a tiny invisible table. This forces EG to generate the HTML file. */
-data _null_;
-    file print;
-    put "Test Complete.";
-run;
+/* 6. CLOSE & TRIGGER */
+ods html5 close;
 
-ods html close;
+title "Test Generated";
+data _null_; file print; put "Open via Globe Icon."; run;
