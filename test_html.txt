@@ -1,80 +1,59 @@
-/* Close all previous outputs */
+/* 1. Setup Safe Path */
+%let safe_path = %sysfunc(getoption(work));
+
+/* 2. Reset Output */
 ods _all_ close;
 
-/* Create a single HTML file in your temporary WORK folder */
-ods html5 path="%sysfunc(getoption(work))" file="simple_test.html"
-    /* INJECT THE BRAIN (JAVASCRIPT) */
-    headtext='
-    <style>
-        body { font-family: sans-serif; padding: 20px; }
-        
-        /* Button Styling */
-        .nav-btn {
-            padding: 15px 30px;
-            font-size: 16px;
-            cursor: pointer;
-            background-color: #0078d7;
-            color: white;
-            border: none;
-            margin-right: 5px;
-            border-radius: 5px;
+/* 3. Open HTML File */
+ods html path="&safe_path" file="button_test.html" style=styles.htmlblue;
+
+/* 4. INJECT JAVASCRIPT & BUTTONS */
+ods html text='
+<script>
+    function togglePage(id) {
+        // Hide all blocks
+        var pages = document.getElementsByClassName("my-page");
+        for(var i=0; i<pages.length; i++) {
+            pages[i].style.display = "none";
         }
-        .nav-btn:hover { background-color: #005a9e; }
+        // Show the clicked one
+        document.getElementById(id).style.display = "block";
+    }
+</script>
 
-        /* The Pages (Hidden by default) */
-        .my-page {
-            display: none; /* Invisible! */
-            padding: 50px;
-            margin-top: 20px;
-            border: 2px solid #ccc;
-            background-color: #f9f9f9;
-        }
-    </style>
+<style>
+    .my-btn { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #0078d7; color: white; border: none; margin-right: 5px; }
+    .my-btn:hover { background: #005a9e; }
+    .my-page { border: 2px solid #333; padding: 20px; margin-top: 20px; display: none; background: #f0f0f0; }
+</style>
 
-    <script>
-        function switchPage(pageID) {
-            // 1. Find all pages and HIDE them
-            document.getElementById("page_dept").style.display = "none";
-            document.getElementById("page_emp").style.display = "none";
-            document.getElementById("page_data").style.display = "none";
+<div style="padding: 20px;">
+    <button class="my-btn" onclick="togglePage(''pg_dept'')">Department</button>
+    <button class="my-btn" onclick="togglePage(''pg_emp'')">Employee</button>
+    <button class="my-btn" onclick="togglePage(''pg_data'')">Data</button>
+</div>
 
-            // 2. Find the specific page clicked and SHOW it
-            document.getElementById(pageID).style.display = "block";
-        }
-    </script>
-    ';
+<div id="pg_dept" class="my-page" style="display:block">
+    <h1>Department Stats Page</h1>
+    <p>Button logic is working.</p>
+</div>
 
-/* --- THE BODY OF THE REPORT --- */
+<div id="pg_emp" class="my-page">
+    <h1>Employee Stats Page</h1>
+    <p>You switched tabs successfully.</p>
+</div>
 
-ods html5 text='<h1>The Simplest Dashboard Test</h1>';
-
-/* THE BUTTONS */
-ods html5 text='
-<div>
-    <button class="nav-btn" onclick="switchPage(''page_dept'')">Department</button>
-    <button class="nav-btn" onclick="switchPage(''page_emp'')">Employee</button>
-    <button class="nav-btn" onclick="switchPage(''page_data'')">Data</button>
+<div id="pg_data" class="my-page">
+    <h1>Data Page</h1>
+    <p>Raw data would go here.</p>
 </div>
 ';
 
-/* THE PAGES */
+/* 5. THE KICKSTART (Crucial!) */
+/* We print a tiny invisible table. This forces EG to generate the HTML file. */
+data _null_;
+    file print;
+    put "Test Complete.";
+run;
 
-/* Page 1: Department (We set style="display:block" so it shows up first) */
-ods html5 text='<div id="page_dept" class="my-page" style="display:block">';
-    ods html5 text='<h2>Department Stats Page</h2>';
-    ods html5 text='<p>If you see this, the first tab is working.</p>';
-ods html5 text='</div>';
-
-/* Page 2: Employee */
-ods html5 text='<div id="page_emp" class="my-page">';
-    ods html5 text='<h2>Employee Stats Page</h2>';
-    ods html5 text='<p>You clicked the Employee button!</p>';
-ods html5 text='</div>';
-
-/* Page 3: Data */
-ods html5 text='<div id="page_data" class="my-page">';
-    ods html5 text='<h2>Data Page</h2>';
-    ods html5 text='<p>Here is where the table would go.</p>';
-ods html5 text='</div>';
-
-ods html5 close;
+ods html close;
